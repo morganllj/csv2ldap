@@ -9,7 +9,6 @@ use Net::LDAP;
 use Getopt::Std;
 use Data::Dumper;
 
-
 my %opts;
 getopts('nf:c:b:y:H:D:s', \%opts);
 
@@ -28,7 +27,10 @@ close $pass;
 
 $ldap->bind($opts{D}, password=>$pass);
 
-my @fields = split (/,/, $opts{f});
+my @fields;
+if (exists $opts{f}) {
+    @fields = split (/,/, $opts{f});
+}
 
 my $indexattr = shift @fields;
 
@@ -49,8 +51,6 @@ while (<$csvfh>) {
     $rslt->code && warn "problem searching: " . $rslt->error;
 
     my $entry = $rslt->as_struct();
-
-#    print Dumper $entry;
 
     my @DNs = keys %$entry;
     if ($#DNs!=0) {
@@ -81,7 +81,14 @@ while (<$csvfh>) {
 }
 
 sub printUsage {
-    print "usage: $0 [-s] -H ldapurl -D binddn -y passfile -f indexfield,field1,field2,... -c csv\n";
+    print "usage: $0 [-s] [ -m | -a] -H ldapurl -D binddn -b basedn -y passfile [ -f indexfield,field1,field2,... | -r ] -c csv\n";
     print "\t-s skip header in csv file\n";
+    print "\t-r read header to identify attr name\n";
+    print "\t-f list attrs on the command line\n";
+    print "\n";
+    print "\t-r and -f are mutually exclusive\n";
+    print "\t-m and -a are mutually exclusive\n";
+    print "\t-m currently only adds, it will print an error if the attr exists in the entry\n";
+
     exit 0;
 }
