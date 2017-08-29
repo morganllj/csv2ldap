@@ -9,6 +9,8 @@ use Net::LDAP;
 use Getopt::Std;
 use Data::Dumper;
 
+$|=1;
+
 my %opts;
 getopts('nf:c:b:y:H:D:s', \%opts);
 
@@ -17,6 +19,7 @@ print "-n used, no changes will be made\n"
 
 exists $opts{H} || printUsage();
 exists $opts{b} || printUsage();
+exists $opts{r} && printUsage();
 
 my $ldap = Net::LDAP->new($opts{H}) or die "$@";
 
@@ -74,19 +77,24 @@ while (<$csvfh>) {
 
 	if (!exists $opts{n}) {
 	    my $mod_rslt = $ldap->modify($dn, add => { $a => $v });
-	    $mod_rslt->code && die "problem modifying: " . $mod_rslt->error;
+	    $mod_rslt->code && die "problem modifying: " . $mod_rslt->error
+	      if (!exists $opts{k});
+	    $mod_rslt->code && warn "problem modifying: " . $mod_rslt->error;
 	}
 				  
     }
 }
 
 sub printUsage {
-    print "usage: $0 [-s] [ -m | -a] -H ldapurl -D binddn -b basedn -y passfile [ -f indexfield,field1,field2,... | -r ] -c csv\n";
+    print "usage: $0 [-n] [-k] [-s] [ -m | -a] -H ldapurl -D binddn -b basedn -y passfile [ -f indexfield,field1,field2,... | -r ] -c csv\n";
+    print "\t-n just print, don't make changes\n";
+    print "\t-k just warn, don't exit on errors\n";
     print "\t-s skip header in csv file\n";
     print "\t-r read header to identify attr name\n";
     print "\t-f list attrs on the command line\n";
     print "\n";
     print "\t-r and -f are mutually exclusive\n";
+    print "\t\t-r is not yet implemented\n";
     print "\t-m and -a are mutually exclusive\n";
     print "\t-m currently only adds, it will print an error if the attr exists in the entry\n";
 
