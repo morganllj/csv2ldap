@@ -12,7 +12,7 @@ use Data::Dumper;
 $|=1;
 
 my %opts;
-getopts('nf:c:b:y:H:D:s', \%opts);
+getopts('nf:c:b:y:H:D:so', \%opts);
 
 print "-n used, no changes will be made\n"
   if (exists $opts{n});
@@ -67,16 +67,28 @@ while (<$csvfh>) {
     while (my $v = shift @values) {
 	my $a = $fields[$i++];
 
-	if (exists $entry->{$dn}{lc $a}) {
-	    print "Skipping $dn, it already contains $a: @{$entry->{$dn}{lc $a}}\n";
-	    next;
+	if (!exists $opts{o}) {
+	    if (exists $entry->{$dn}{lc $a}) {
+		print "Skipping $dn, it already contains $a: @{$entry->{$dn}{lc $a}}\n";
+		next;
+	    }
 	}
 
 	chomp $v;
-	print "adding $a $v to $dn\n";
+
+	if (!exists $opts{o}) {
+	    print "adding $a $v to $dn\n";
+	} else {
+	    print "replacing $a $v in $dn\n";
+	}
 
 	if (!exists $opts{n}) {
-	    my $mod_rslt = $ldap->modify($dn, add => { $a => $v });
+	    my $mod_rslt;
+	    if (!exists $opts{o}) {
+		$mod_rslt = $ldap->modify($dn, add => { $a => $v });
+	    } else {
+		$mod_rslt = $ldap->modify($dn, replace => { $a => $v });
+	    }
 	    $mod_rslt->code && die "problem modifying: " . $mod_rslt->error
 	      if (!exists $opts{k});
 	    $mod_rslt->code && warn "problem modifying: " . $mod_rslt->error;
@@ -86,7 +98,7 @@ while (<$csvfh>) {
 }
 
 sub printUsage {
-    print "usage: $0 [-n] [-k] [-s] [ -m | -a] -H ldapurl -D binddn -b basedn -y passfile [ -f indexfield,field1,field2,... | -r ] -c csv\n";
+    print "usage: $0 [-n] [-k] [-s] [ -m | -a] [-o] -H ldapurl -D binddn -b basedn -y passfile [ -f indexfield,field1,field2,... | -r ] -c csv\n";
     print "\t-n just print, don't make changes\n";
     print "\t-k just warn, don't exit on errors\n";
     print "\t-s skip header in csv file\n";
@@ -97,6 +109,7 @@ sub printUsage {
     print "\t\t-r is not yet implemented\n";
     print "\t-m and -a are mutually exclusive\n";
     print "\t-m currently only adds, it will print an error if the attr exists in the entry\n";
+    print "\t-o overwrite anything already there.  This will *replace* existing values\n";
 
     exit 0;
 }
